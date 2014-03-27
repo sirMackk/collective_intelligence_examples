@@ -1,4 +1,18 @@
 from scipy import stats as sp
+from requests import get
+import os.path
+import zipfile
+
+# download and extract MovieLens dataset if it's not present
+if not os.path.exists('ml-100k/u.item') or not os.path.exists('ml-100k/u.data'):
+    zip_download = get('http://files.grouplens.org/datasets/movielens/ml-100k.zip')
+    with open('ml-100k.zip', 'wb') as f:
+        f.write(zip_download.content)
+
+    with zipfile.ZipFile('ml-100k.zip', 'r') as zip_file:
+        zip_file.extract('ml-100k/u.data')
+        zip_file.extract('ml-100k/u.item')
+
 
 critics = {'Lisa Rose':
             {'Lady in the Water': 2.5, 'Snakes on a Plane': 3.5,
@@ -31,6 +45,10 @@ critics = {'Lisa Rose':
 
 # euclidean distance between two people
 def sim_distance(prefs, person1, person2):
+    '''
+    Calculates euclidean distance between two people
+    by comparing their shared item scores.
+    '''
     shared_items = {}
     for item in prefs[person1]:
         if item in prefs[person2]:
@@ -48,6 +66,10 @@ def sim_distance(prefs, person1, person2):
 
 # pearson coefficient
 def sim_pearson(prefs, person1, person2):
+    '''
+    Calculates the pearson r for two people
+    using the shared item scores.
+    '''
     shared_items = {}
     for item in prefs[person1]:
         if item in prefs[person2]:
@@ -76,6 +98,12 @@ def sim_pearson(prefs, person1, person2):
 
 # pearson coefficient using scipy.stats.pearsonr
 def scipy_sim_pearson(prefs, person1, person2):
+    '''
+    Calculates the pearson r for two people
+    using the shared item scores and the
+    scipy.stats.pearsonr function for improved
+    performance.
+    '''
     shared_items = {item: 1 for item in prefs[person1]
             if item in prefs[person2]}
 
@@ -87,6 +115,9 @@ def scipy_sim_pearson(prefs, person1, person2):
 
 
 def top_matches(prefs, person, n=5, similarity_fn=scipy_sim_pearson):
+    '''
+    Calculates n top similar matches for person.
+    '''
     scores = [(similarity_fn(prefs, person, other), other)
                 for other in prefs if other != person]
     scores.sort()
@@ -95,6 +126,9 @@ def top_matches(prefs, person, n=5, similarity_fn=scipy_sim_pearson):
 
 
 def get_recommendations(prefs, person, similarity_fn=scipy_sim_pearson):
+    '''
+    Generates an orderded list of similar items for person.
+    '''
     totals = {}
     similarity_sums = {}
 
@@ -118,27 +152,14 @@ def get_recommendations(prefs, person, similarity_fn=scipy_sim_pearson):
     return rankings
 
 
-def get_recommendations_imp(prefs, person, similarity_fn=scipy_sim_pearson):
-    others = prefs.copy()
-    others.pop(person)
-    totals = {}
-    similarity_sums = {}
-
-    for other in others:
-        similarity = similarity_fn(prefs, person, other)
-        if similarity > 0:
-            for item in prefs[other]:
-                if item not in prefs[person] or prefs[person][item] == 0:
-                    totals.setdefault(item, 0)
-                    totals[item] += prefs[other][item] * similarity
-                    similarity_sums.setdefault(item, 0)
-                    similarity_sums[item] += similarity
-
-    return sorted([(total / similarity_sums[item], item)
-        for item, total in totals.items()], reverse=True)
-
-
 def transform_prefs(prefs):
+    '''
+    Transforms user based preferences into item based
+    preferences ie. {'User': {'item': 3.5, 'item2': 5.0}}
+    is turned into {'item': {'User': 3.5'}, 'item2': 
+    {'User': 5.0}. Useful when trying to get similar items
+    instead of similar users.
+    '''
     results = {}
     for person in prefs:
         for item in prefs[person]:
@@ -146,3 +167,77 @@ def transform_prefs(prefs):
             results[item][person] = prefs[person][item]
 
     return results
+
+
+def calculate_similar_items(prefs, n=10):
+    '''
+    Generates a list of items along with n
+    top matched similar items and their similarity score.
+    '''
+
+    result = {}
+
+    item_prefs = transform_prefs(prefs)
+    c = 0
+    for item in item_prefs:
+        c += 1
+        if c % 100 == 0:
+            print "%d / %d" % (c, len(item_prefs))
+
+        scores = top_matches(item_prefs, item, n, sim_distance)
+        # use sim_distance, because pearsonr will
+        # have problems with divide by 0 and introduce nan's
+        result[item] = scores
+    return result
+
+
+# recommend items to user
+def get_recommended_items(prefs, itemMatch, user):
+    '''
+    Generates a list of recommended items for a user
+    based on user preferences (prefs[user]) as well 
+    as a list of similar items.
+    '''
+    user_ratings = prefs[user]
+    scores = {}
+    total_similar = {}
+
+    for (item, rating) in user_ratings.items():
+        for (similarity, item2) in itemMatch[item]:
+            if item2 not in user_ratings:
+                scores.setdefault(item2, 0)
+                scores[item2] += similarity * rating
+
+                total_similar.setdefault(item2, 0)
+                print similarity
+                total_similar[item2] += similarity
+
+    rankings = [(score / total_similar[item], item)
+            for item, score in scores.items()]
+
+    rankings.sort()
+    rankings.reverse()
+    return rankings
+
+
+# MovieLens dataset related functions
+def load_movie_lens(path='ml-100k/'):
+    '''
+    Simple function to read in the MovieLens data
+    required to play around with all the other functions.
+    '''
+    movies = {}
+    with open(path + 'u.item') as u_items:
+        for line in u_items:
+            (id, title) = line.split('|')[0:2]
+            movies[id] = title
+
+    prefs = {}
+
+    with open(path + 'u.data') as u_data:
+        for line in u_data:
+            (user, movie_id, rating, time) = line.split('\t')
+            prefs.setdefault(user, {})
+            prefs[user][movies[movie_id]] = float(rating)
+
+    return prefs
