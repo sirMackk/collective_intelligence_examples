@@ -42,6 +42,9 @@ critics = {'Lisa Rose':
                     'Superman Returns': 4.0}
            }
 
+def shared_items_fn(prefs, person1, person2):
+    return {item: 1 for item in prefs[person1] if item in prefs[person2]}
+
 
 # euclidean distance between two people
 def sim_distance(prefs, person1, person2):
@@ -49,10 +52,7 @@ def sim_distance(prefs, person1, person2):
     Calculates euclidean distance between two people
     by comparing their shared item scores.
     '''
-    shared_items = {}
-    for item in prefs[person1]:
-        if item in prefs[person2]:
-            shared_items[item] = 1
+    shared_items = shared_items_fn(prefs, person1, person2)
 
     if len(shared_items) == 0:
         return 0
@@ -70,10 +70,7 @@ def sim_pearson(prefs, person1, person2):
     Calculates the pearson r for two people
     using the shared item scores.
     '''
-    shared_items = {}
-    for item in prefs[person1]:
-        if item in prefs[person2]:
-            shared_items[item] = 1
+    shared_items = shared_items_fn(prefs, person1, person2)
 
     n = len(shared_items)
 
@@ -209,7 +206,6 @@ def get_recommended_items(prefs, itemMatch, user):
                 scores[item2] += similarity * rating
 
                 total_similar.setdefault(item2, 0)
-                print similarity
                 total_similar[item2] += similarity
 
     rankings = [(score / total_similar[item], item)
