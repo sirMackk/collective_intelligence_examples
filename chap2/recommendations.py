@@ -137,10 +137,13 @@ def get_recommendations(prefs, person, similarity_fn=scipy_sim_pearson):
                 for item in prefs[other_person]:
                     if item not in prefs[person] or prefs[person][item] == 0:
                         totals.setdefault(item, 0)
+                        # accumulate movie score times similarity...
                         totals[item] += prefs[other_person][item] * similarity
                         similarity_sums.setdefault(item, 0)
+                        # ... and accumulate the total similarity as well ...
                         similarity_sums[item] += similarity
 
+    # ... so we can normalize the final score here!
     rankings = [(total / similarity_sums[item], item)
             for item, total in totals.items()]
 
