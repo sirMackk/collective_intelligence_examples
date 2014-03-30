@@ -11,19 +11,22 @@ def get_word_counts(url):
     parsed = feedparser.parse(url)
 
     word_count = {}
+    if 'title' in parsed.feed:
 
-    for entry in parsed.entries:
-        if 'summary' in entry:
-            summary = entry.summary
-        else:
-            summary = entry.description
+        for entry in parsed.entries:
+            if 'summary' in entry:
+                summary = entry.summary
+            else:
+                summary = entry.description
 
-        words = get_words(' '.join([entry.title, summary]))
-        for word in words:
-            word_count.setdefault(word, 0)
-            word_count[word] += 1
+            words = get_words(' '.join([entry.title, summary]))
+            for word in words:
+                word_count.setdefault(word, 0)
+                word_count[word] += 1
 
-    return (parsed.feed.title, word_count)
+        return (parsed.feed.title, word_count)
+    else:
+        return (None, None)
 
 
 def get_words(html):
@@ -48,15 +51,20 @@ if __name__ == '__main__':
     # iterate through list of feed urls and collect word count for each feed
     # then iterate throught that collection and assign the blog count for each word
     with open('feedlist.txt', 'rb') as f:
-        feed_list_length = len(f)
-        for feed_url in f:
+        feed_lines = f.readlines()
+        feed_list_length = len(feed_lines)
+        c = 0.0
+        for feed_url in feed_lines:
+            c += 1
+            print "%.2f%%" % ((c / feed_list_length) * 100)
             title, word_count = get_word_counts(feed_url)
-            word_counts[title] = word_count
+            if title:
+                word_counts[title] = word_count
 
-            for word, count in word_count.items():
-                ap_count.setdefault(word, 0)
-                if count > 1:
-                    ap_count[word] += 1
+                for word, count in word_count.items():
+                    ap_count.setdefault(word, 0)
+                    if count > 1:
+                        ap_count[word] += 1
 
     word_list = []
 
@@ -74,11 +82,12 @@ if __name__ == '__main__':
     with open('blogdata2.txt', 'wb') as output:
         output.write('Blog')
         for word in word_list:
-            output.write('\t%s' % word)
+            output.write('\t%s' % word.encode('utf8'))
 
         output.write('\n')
         for blog, word_count in word_counts.items():
-            output.write(blog)
+
+            output.write(blog.encode('utf8'))
             for word in word_list:
                 if word in word_count:
                     output.write('\t%d' % word_count[word])
