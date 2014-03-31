@@ -1,4 +1,5 @@
 from PIL import Image, ImageDraw
+import random
 
 def read_file(file_name):
     '''
@@ -115,6 +116,63 @@ def hcluster(rows, distance=pearson):
 
     # return the root node
     return clust[0]
+
+
+def kcluster(rows, distance=pearson, k=4):
+    # collects the min and max for a given row
+    ranges = [(min([row[i] for row in rows]), max([row[i] for row in rows]))
+            for i in xrange(len(rows[0]))]
+
+    # creates k randomly placed centroids
+    clusters = [[random.random() * (ranges[i][1] - ranges[i][0]) + ranges[i][0]
+        for i in xrange(len(rows[0]))] for j in xrange(k)]
+
+    last_matches = None
+
+    for t in xrange(1000):
+        print 'Iteration %d' % t
+        best_matches = [[] for i in xrange(k)]
+
+        # iterate over each row
+        for j in xrange(len(rows)):
+            row = rows[j]
+            best_match = 0
+            # iterate over each cluster
+            for i in xrange(k):
+                d = distance(clusters[i], row)
+                # find the cluster closest to a row
+                if d < distance(clusters[best_match], row):
+                    best_match = i
+                # append the best matched row index to specific cluster 
+                # in list of clusters
+                best_matches[best_match].append(j)
+
+        if best_matches == last_matches:
+            break
+        last_matches = best_matches
+
+        # iterate through the clusters again
+        for i in xrange(k):
+            # create list with 0.0s the size of the no. of columns
+            avgs = [0.0] * len(rows[0])
+            if len(best_matches[i]) > 0:
+                # iterate through a k cluster
+                for row_id in best_matches[i]:
+                    # iterate through a row's using the id
+                    # in the cluster
+                    for m in xrange(len(rows[row_id])):
+                        # and accumulate column by column.
+                        # essentially, we're summing up the columns
+                        # of each cluster. 
+                        avgs[m] += rows[row_id][m]
+                # iterate through the avgs
+                for j in xrange(len(avgs)):
+                    # divide each average by the length
+                    # of each cluster
+                    avgs[j] /= len(best_matches[i])
+                # overwrite each centroid with the updated averages
+                clusters[i] = avgs
+    return best_matches
 
 
 def print_clust(clust, labels=None, n=0):
