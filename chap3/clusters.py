@@ -1,3 +1,5 @@
+from PIL import Image, ImageDraw
+
 def read_file(file_name):
     '''
     Read a tab delimited file of frequent words on blogs.
@@ -50,7 +52,7 @@ class Bicluster(object):
         self.left = left
         self.right = right
         self.vector = vector
-        self.desitance = distance
+        self.distance = distance
         self.id = id
 
 
@@ -116,6 +118,9 @@ def hcluster(rows, distance=pearson):
 
 
 def print_clust(clust, labels=None, n=0):
+    '''
+    Print a simple representation of the clustered data.
+    '''
     for i in xrange(n):
         print ' ',
     if clust.id < 0:
@@ -130,3 +135,61 @@ def print_clust(clust, labels=None, n=0):
         print_clust(clust.left, labels=labels, n=n+1)
     if clust.right:
         print_clust(clust.right, labels=labels, n=n+1)
+
+
+def get_height(clust):
+    if not clust.left and not clust.right:
+        return 1
+
+    # recursive yay!
+    return get_height(clust.left) + get_height(clust.right)
+
+
+def get_depth(clust):
+    if not clust.left and not clust.right:
+        return 0
+
+    return max(get_depth(clust.left), get_depth(clust.right)) + clust.distance
+
+
+def draw_node(draw, clust, x, y, scaling, labels):
+    if clust.id < 0:
+        h1 = get_height(clust.left) * 20
+        h2 = get_height(clust.right) * 20
+
+        top = y - (h1 + h2) / 2
+        bottom = y + (h1 + h2) / 2
+
+        line_length = clust.distance * scaling
+
+        draw.line((x, top+h1 / 2, x, bottom - h2 / 2), fill=(255, 0, 0))
+
+        draw.line((x, top + h1 / 2, x + line_length, top + h1 / 2),
+                fill=(255, 0, 0))
+
+        draw.line((x, bottom - h2 / 2, x + line_length, bottom - h2 / 2),
+                fill=(255, 0, 0))
+
+        draw_node(draw, clust.left, x + line_length, top + h1 / 2, scaling,
+                labels)
+        draw_node(draw, clust.right, x + line_length, bottom - h2 / 2, scaling,
+                labels)
+    else:
+        draw.text((x + 5, y - 7), labels[clust.id], (0, 0, 0))
+
+
+def draw_dendrogram(clust, labels, jpeg='clusters.jpg'):
+    height = get_height(clust) * 20
+    width = 1200
+    depth = get_depth(clust)
+
+    scaling = float(width - 150) / depth
+
+    img = Image.new('RGB', (width, height), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+
+    draw.line((0, height / 2, 10, height / 2), fill=(255, 0, 0))
+
+    draw_node(draw, clust, 10, (height / 2), scaling, labels)
+    img.save(jpeg, 'JPEG')
+
