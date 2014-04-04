@@ -3,6 +3,9 @@ from bs4 import BeautifulSoup
 from urlparse import urljoin
 import sqlite3
 import re
+import nn
+
+mynet = nn.SearchNet('nn.db')
 
 ignore_words = {'the': 1, 'of': 1, 'to': 1, 'and': 1,
                 'a': 1, 'in': 1, 'is': 1, 'it': 1}
@@ -234,6 +237,14 @@ class Searcher(object):
             for (url, score) in scores.items()], reverse=True)
         for (score, url_id) in ranked_scores[:10]:
             print '%f\t%s' % (score, self.get_url_name(url_id))
+
+        return word_ids, [r[1] for r in ranked_scores[:10]]
+
+    def nn_score(self, rows, word_ids):
+        url_ids = [url_id for url_id in set([row[0] for row in rows])]
+        nn_result = mynet.get_result(word_ids, url_ids)
+        scores = dict([(url_ids[i], nn_result[i]) for i in xrange(len(url_ids))])
+        return self.normalize_scores(scores)
 
     def normalize_scores(self, scores, small_is_better=False):
         vsmall = 0.00001
