@@ -112,3 +112,74 @@ def hill_climb(domain, costf):
 
     print best
     return sol
+
+
+def annealing_optimize(domain, costf, T=10000.0, cool=0.95, step=1):
+    vec = [float(random.randint(domain[i][0], domain[i][1]))
+            for i in xrange(len(domain))]
+
+    while T > 0.1:
+        i = random.randint(0, len(domain) - 1)
+
+        dir = random.randint(-step, step)
+
+        vec_b = vec[:]
+        vec_b[i] += dir
+        if vec_b[i] < domain[i][0]:
+            vec_b[i] = domain[i][0]
+        elif vec_b[i] > domain[i][1]:
+            vec_b[i] = domain[i][1]
+
+        ea = costf(vec)
+        eb = costf(vec_b)
+        p = pow(math.e, (-eb-ea) / T)
+
+        if (eb < ea or random.random() < p):
+            vec = vec_b
+
+        T = T * cool
+    return vec
+
+
+def genetic_optimize(domain, costf, pop_size=50, step=1,
+        mut_prob=0.2, elite=0.2, max_iter=100):
+    def mutate(vec):
+        i = random.randint(0, len(domain) - 1)
+        if random.random() < 0.5 and vec[i] > domain[i][0]:
+            return vec[0:i] + [vec[i]-step] + vec[i+1:]
+        # this sometimes doesnt hit and so returns None
+        #elif vec[i] < domain[i][1]:
+        else:
+            return vec[0:i] + [vec[i]+step] + vec[i+1:]
+
+    def crossover(r1, r2):
+        i = random.randint(1, len(domain) - 2)
+        return r1[0:i] + r2[i:]
+
+    pop = []
+    for i in xrange(pop_size):
+        vec = [random.randint(domain[i][0], domain[i][1])
+            for i in xrange(len(domain))]
+        pop.append(vec)
+
+    top_elite = int(elite*pop_size)
+
+    for i in xrange(max_iter):
+        scores = [(costf(v), v) for v in pop]
+        scores.sort()
+        ranked = [v for (s, v) in scores]
+
+        pop = ranked[0:top_elite]
+
+        while len(pop) < pop_size:
+            if random.random() < mut_prob:
+                c = random.randint(0, top_elite)
+                pop.append(mutate(ranked[c]))
+            else:
+                c1 = random.randint(0, top_elite)
+                c2 = random.randint(0, top_elite)
+                pop.append(crossover(ranked[c1], ranked[c2]))
+        
+        print scores[0][0]
+
+    return scores[0][1]
