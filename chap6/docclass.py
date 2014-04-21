@@ -15,6 +15,7 @@ class Classifier(object):
         self.feature_category = {}
         self.document_in_category = {}
         self.get_features = get_features
+        self.thresholds = {}
 
     def incf(self, feature, category):
         self.feature_category.setdefault(feature, {})
@@ -61,6 +62,45 @@ class Classifier(object):
 
         weighted = ((weight * ap) + (totals * basic_prob)) / (weight + totals)
         return weighted
+
+    def set_threshold(self, category, t):
+        self.thresholds[category] = t
+
+    def get_threshold(self, category):
+        if category not in self.thresholds:
+            return 1.0
+        return self.thresholds[category]
+
+    def classify(self, item, default=None):
+        probs = {}
+        max = 0.0
+        for category in self.categories():
+            probs[category] = self.prob(item, category)
+            if probs[category] > max:
+                max = probs[category]
+                best = category
+
+        for category in probs:
+            if category == best:
+                continue
+            if probs[category] * self.get_threshold(best) > probs[best]:
+                return default
+        return best
+
+
+class NaiveBayes(Classifier):
+    def doc_prob(self, item, category):
+        features = self.get_features(item)
+
+        p = 1
+        for feature in features:
+            p *= self.weighted_prob(feature, category, self.f_prob)
+        return p
+
+    def prob(self, item, category):
+        cat_prob = self.cat_count(category) / self.total_count()
+        doc_prob = self.doc_prob(item, category)
+        return doc_prob * cat_prob
 
 
 def sample_train(classifier):
