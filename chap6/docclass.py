@@ -103,6 +103,61 @@ class NaiveBayes(Classifier):
         return doc_prob * cat_prob
 
 
+class FisherClassifier(Classifier):
+    def __init__(self, get_features):
+        Classifier.__init__(self, get_features)
+        self.minimums = {}
+
+    def c_prob(self, feature, category):
+        clf = self.f_prob(feature, category)
+        if clf == 0:
+            return 0
+
+        freq_sum = sum([self.f_prob(feature, cat) for cat in self.categories()])
+
+        p = clf / freq_sum
+
+        return p
+
+    def fisher_prob(self, item, category):
+        p = 1.0
+        features = self.get_features(item)
+        for feature in features:
+            p *= (self.weighted_prob(feature, category, self.c_prob))
+
+        f_score = -2 * math.log(p)
+
+        return self.inv_chi2(f_score, len(features) * 2)
+
+    def inv_chi2(self, chi, df):
+        m = chi / 2.0
+        sum = term = math.exp(-m)
+        for i in xrange(1, df // 2):
+            term *= m / i
+            sum += term
+
+        return min(sum, 1.0)
+
+    def set_minimum(self, category, min):
+        self.minimums[category] = min
+
+    def get_minimum(self, category):
+        if category not in self.minimums:
+            return 0
+        return self.minimums[category]
+
+    def classify(self, item, default=None):
+        best = default
+        max = 0.0
+        for category in self.categories():
+            p = self.fisher_prob(item, category)
+            if p > self.get_minimum(category) and p > max:
+                best = category
+                max = p
+
+        return best
+
+
 def sample_train(classifier):
     classifier.train('Nobody owns the water.', 'good')
     classifier.train('the quick rabbit jumps fences', 'good')
