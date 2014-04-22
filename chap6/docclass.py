@@ -1,5 +1,6 @@
 import re
 import math
+import sqlite3
 
 
 def get_words(doc):
@@ -17,30 +18,78 @@ class Classifier(object):
         self.get_features = get_features
         self.thresholds = {}
 
+    def set_db(self, db_file):
+        self.con = sqlite3.connect(db_file)
+        self.con.execute('create table if not exists \
+                feature_category(feature, category, count)')
+        self.con.execute('create table if not exists \
+                document_in_category(category, count)')
+
     def incf(self, feature, category):
-        self.feature_category.setdefault(feature, {})
-        self.feature_category[feature].setdefault(category, 0)
-        self.feature_category[feature][category] += 1
+        # commented out functionality that works using dicts instead of sqlit
+        #self.feature_category.setdefault(feature, {})
+        #self.feature_category[feature].setdefault(category, 0)
+        #self.feature_category[feature][category] += 1
+        count = self.f_count(feature, category)
+        if count == 0:
+            self.con.execute('insert into feature_category values \
+                    ("%s", "%s", 1)' % (feature, category))
+        else:
+            self.con.execute('update feature_category set count = %d \
+                    where feature = "%s" and category = "%s"' %
+                    (count + 1, feature, category))
 
     def incc(self, category):
-        self.document_in_category.setdefault(category, 0)
-        self.document_in_category[category] += 1
+        # commented out functionality that works using dicts instead of sqlit
+        #self.document_in_category.setdefault(category, 0)
+        #self.document_in_category[category] += 1
+        count = self.cat_count(category)
+        if count == 0:
+            self.con.execute('insert into document_in_category values \
+                    ("%s", 1)' % category)
+        else:
+            self.con.execute('update document_in_category set count = %d \
+                    where category = "%s"' % (count + 1, category))
 
     def f_count(self, feature, category):
-        if feature in self.feature_category and category in self.feature_category[feature]:
-            return float(self.feature_category[feature][category])
-        return 0.0
+        # commented out functionality that works using dicts instead of sqlit
+        #if feature in self.feature_category and category in self.feature_category[feature]:
+            #return float(self.feature_category[feature][category])
+        #return 0.0
+        res = self.con.execute('select count from feature_category\
+                 where feature = "%s" and category = "%s"' %
+                 (feature, category)).fetchone()
+        if not res:
+            return 0
+        else:
+            return float(res[0])
 
     def cat_count(self, category):
-        if category in self.document_in_category:
-            return float(self.document_in_category[category])
-        return 0.0
+        # commented out functionality that works using dicts instead of sqlit
+        #if category in self.document_in_category:
+            #return float(self.document_in_category[category])
+        #return 0.0
+        res = self.con.execute('select count from document_in_category \
+                where category = "%s"' % category).fetchone()
+        if not res:
+            return 0
+        else:
+            return float(res[0])
 
     def total_count(self):
-        return sum(self.document_in_category.values())
+        # commented out functionality that works using dicts instead of sqlit
+        #return sum(self.document_in_category.values())
+        res = self.con.execute('select sum(count) from document_in_category').fetchone()
+        if not res:
+            return 0
+        else:
+            return res[0]
 
     def categories(self):
-        return self.document_in_category.keys()
+        # commented out functionality that works using dicts instead of sqlit
+        #return self.document_in_category.keys()
+        cur = self.con.execute('select category from document_in_category')
+        return [d[0] for d in cur]
 
     def train(self, item, category):
         features = self.get_features(item)
@@ -48,6 +97,7 @@ class Classifier(object):
             self.incf(feature, category)
 
         self.incc(category)
+        self.con.commit()
 
     def f_prob(self, feature, category):
         if self.cat_count(category) == 0:
