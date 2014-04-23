@@ -2,6 +2,13 @@ import feedparser
 import re
 
 def read(feed, classifier):
+    '''
+    This is an interactive function that reads an RSS feed in xml file
+    form and uses the supplied classifier and user input to make guesses
+    and teach the classifier.
+    First it parses the xml file, then it gives the best guess, finally
+    it asks for user input to train the classifier further.
+    '''
     f = feedparser.parse(feed)
     for entry in f['entries']:
         print
@@ -11,6 +18,8 @@ def read(feed, classifier):
         print
         print entry['summary'].encode('utf-8')
 
+        # use a composite of parts of the feed entry as the text. 
+        # commented out, because entry_features now uses the whole entry.
         #full_text = '%s\n%s\n%s' % (entry['title'], entry['publisher'], entry['summary'])
 
         print 'Guess:       ' + str(classifier.classify(entry))
@@ -19,6 +28,11 @@ def read(feed, classifier):
         classifier.train(entry, cl)
 
 def entry_features(entry):
+    '''
+    Splits an RSS item into multiple fields, then constructs
+    a dictionary (f) of features that include the title,
+    summary, publisher, and even upper case words!
+    '''
     splitter = re.compile('\\W*')
     f = {}
 
