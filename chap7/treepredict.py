@@ -1,3 +1,4 @@
+from PIL import Image, ImageDraw
 
 my_data=[['slashdot', 'USA', 'yes', 18, 'None'],
         ['google', 'France', 'yes', 23, 'Premium'],
@@ -18,7 +19,7 @@ my_data=[['slashdot', 'USA', 'yes', 18, 'None'],
 
 
 class DecisionNode(object):
-    def _init__(self, col=-1, value=None, results=None, tb=None, fb=None):
+    def __init__(self, col=-1, value=None, results=None, tb=None, fb=None):
         self.col = col
         self.value = value
         self.results = results
@@ -76,11 +77,11 @@ def entropy(rows):
     # TODO: check if log2 can be substituted with something from
     # the stdlib.
     from math import log
-    log2 = lambda x: log(x) / log(2)
+    log2 = lambda x: (log(x) / log(2))
     results = unique_counts(rows)
     ent = 0.0
     for r in results.keys():
-        p = float(results[r] / len(rows))
+        p = float(results[r] / float(len(rows)))
         ent = ent - p*log2(p)
 
     return ent
@@ -119,3 +120,135 @@ def build_tree(rows, score_f=entropy):
                 tb=true_branch, fb=false_branch)
     else:
         return DecisionNode(results=unique_counts(rows))
+
+
+def print_tree(tree, indent=''):
+    if tree.results: 
+        print str(tree.results)
+    else:
+        print str(tree.col) + ':' + str(tree.value)+'? '
+
+        print indent + 'T->',
+        print_tree(tree.tb, indent+'    ')
+        print indent + 'F->',
+        print_tree(tree.fb, indent+'    ')
+
+
+def get_width(tree):
+    if not tree.tb and not tree.tb:
+        return 1
+    return get_width(tree.tb) + get_width(tree.fb)
+
+
+def get_depth(tree):
+    if not tree.tb and not tree.fb:
+        return 0
+    return max(get_depth(tree.tb), get_depth(tree.fb)) + 1
+
+
+def draw_node(draw, tree, x, y):
+    if not tree.results:
+        w1 = get_width(tree.fb) * 100
+        w2 = get_width(tree.tb) * 100
+
+        left = x - (w1 + w2) / 2
+        right = x + (w1 + w2) /2
+
+        draw.text((x - 20, y - 10), str(tree.col) + ':' + str(tree.value), (0, 0, 0))
+
+        draw.line((x, y, left + w1 / 2, y + 100), fill=(255, 0, 0))
+        draw.line((x, y, right - w2 / 2, y + 100), fill=(255, 0, 0))
+
+        draw_node(draw, tree.fb, left + w1 / 2, y + 100)
+        draw_node(draw, tree.tb, right - w2 / 2, y + 100)
+    else:
+        txt = ' \n'.join(['%s:%d' %v for v in tree.results.items()])
+        draw.text((x - 20, y), txt, (0, 0, 0))
+
+def draw_tree(tree, jpeg='tree.jpg'):
+    w = get_width(tree) * 100
+    h = get_depth(tree) * 100 + 120
+
+    img = Image.new('RGB', (w, h), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+
+    draw_node(draw, tree, w/2, 20)
+    img.save(jpeg, 'JPEG')
+    
+
+def classify(observation, tree):
+    if tree.results:
+        return tree.results
+    else:
+        v = observation[tree.col]
+        branch = None
+        if isinstance(v, int) or isinstance(v, float):
+            if v >= tree.value:
+                branch = tree.tb
+            else:
+                branch = tree.fb
+        else:
+            if v == tree.value:
+                branch = tree.tb
+            else:
+                branch = tree.fb
+        return classify(observation, branch)
+
+
+def prune(tree, min_gain):
+    if not tree.tb.results:
+        prune(tree.tb, min_gain)
+    if not tree.fb.results:
+        prune(tree.fb, min_gain)
+
+    if tree.tb.results and tree.fb.results:
+        tb, fb = [], []
+        for v, c in tree.tb.results.items():
+            tb += [[v]] * c
+        for v, c in tree.fb.results.items():
+            fb += [[v]] * c
+
+        delta = entropy(tb + fb) - (entropy(tb) + entropy(fb) / 2)
+        if delta < min_gain:
+            tree.tb, tree.fb = None, None
+            tree.results = unique_counts(tb + fb)
+
+
+def md_classify(observation, tree):
+    if tree.results:
+        return tree.results
+    else:
+        v = observation[tree.col]
+        if not v:
+            tr, fr = md_classify(observation, tree.tb), md_classify(observation, tree.fb)
+            t_count = sum(tr.values())
+            f_count = sum(fr.values())
+            tw = float(t_count) / (t_count + f_count)
+            fw = float(f_count) / (t_count + f_count)
+            results = {}
+            for k, v in tr.items():
+                results[k] = v * tw
+            for k, v in fr.items():
+                results[k] = v * fw
+            return results
+        else:
+            if isinstance(v, int) or isinstance(v, float):
+                if v >= tree.value:
+                    branch = tree.tb
+                else:
+                    branch = tree.fb
+            else:
+                if v == tree.value:
+                    branch = tree.tb
+                else:
+                    branch = tree.fb
+            return md_classify(observation, branch)
+
+
+def variance(rows):
+    if len(rows) == 0:
+        return 0
+    data = [float(row[len(row) - 1]) for row in rows]
+    mean = sum(data) / len(data)
+    variance = sum([(d - mean) ** 2 for d in data]) / len(data)
+    return variance
