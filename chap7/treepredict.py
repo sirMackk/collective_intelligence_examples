@@ -29,7 +29,17 @@ class DecisionNode(object):
 
 
 def divide_set(rows, column, value):
-    # splits a set into two sets using a chosen split_function
+    '''
+    Splits a set into two sets using the value as the splitter.
+    If the value is a string, it will split the rows into
+    [every row with string, every row without it]. If the value
+    is a number (float,int), then it will split rows into
+    [every row < value, every row >= value].
+    '''
+    # select the best splitting function, which is a lambda wrapped
+    # conditional statement using the supplied value as the splitter:
+    # one for numerical data
+    # other one for anything else
     split_function = None
     if isinstance(value, int) or isinstance(value, float):
         split_function = lambda row: row[column] >= value
@@ -43,7 +53,10 @@ def divide_set(rows, column, value):
 
 
 def unique_counts(rows):
-    # calculates how mixed a set is
+    '''
+    Uses the last column of my_data to create unique categories
+    and maintains the count of items for each category.
+    '''
     results = {}
     for row in rows:
         r = row[len(row)-1]
@@ -55,9 +68,8 @@ def unique_counts(rows):
 
 
 def gini_impurity(rows):
-    # calculates the chance for every row, that a row
-    # would be randomly assigned to the wrong outcome.
-    # the higher the p, the worse the split.
+    # Another way of calculating information gain (purity)
+    # or entropy (impurting).
     total = len(rows)
     counts = unique_counts(rows)
     imp = 0
@@ -73,21 +85,32 @@ def gini_impurity(rows):
 
 
 def entropy(rows):
-    # check the entropy of a set (how much disorder there is).
-    # TODO: check if log2 can be substituted with something from
-    # the stdlib.
+    # Calculates the entropy using the last column (results)
+    # as the information input ie. if results look like this:
+    # {'None': 1, 'Basic': 1, 'Premium': 1} they are more
+    # homogenic then if they looked like:
+    # {'None': 0, 'Baisc': 3, 'Premium': 8}.
+    # The more similar the result column in rows, the lower
+    # the entropy.
+    # Here's a good explanation:
+    # https://stackoverflow.com/questions/1859554/what-is-entropy-and-information-gain
     from math import log
-    log2 = lambda x: (log(x) / log(2))
+    #log2 = lambda x: (log(x) / log(2))
     results = unique_counts(rows)
     ent = 0.0
     for r in results.keys():
         p = float(results[r] / float(len(rows)))
-        ent = ent - p*log2(p)
+        # replaces books log2 func with stdlib one
+        #ent = ent - p*log2(p)
+        ent = ent - p * log(p, 2)
 
     return ent
 
 
 def build_tree(rows, score_f=entropy):
+    '''
+    Build a decision tree using recursion. Returns the root node.
+    '''
     if len(rows) == 0:
         return DecisionNode()
     current_score = score_f(rows)
@@ -96,33 +119,64 @@ def build_tree(rows, score_f=entropy):
     best_criteria = None
     best_sets = None
 
+    # selects only data columns, not the results
     column_count = len(rows[0]) - 1
 
+    # iterate through every column
     for col in xrange(0, column_count):
         column_values = {}
+        # iterate and create a dictionary of column values,
+        # ensuring no duplicates
         for row in rows:
             column_values[row[col]] = 1
 
+        # iterate through the unique column values and
+        # divide the dataset (rows) using each unique
+        # column value. Then compare the information gain
+        # for each two sets and choose the best sets with the
+        # highest information gain (lowest entropy?)
+        # as the column value with which to split this column.
         for value in column_values.keys():
             (set_1, set_2) = divide_set(rows, col, value)
 
-        p = float(len(set_1)) / float(len(rows))
-        gain = current_score - p * score_f(set_1) - (1 - p) * score_f(set_2)
-        if gain > best_gain and len(set_1) > 0 and len(set_2) > 0:
-            best_gain = gain
-            best_criteria = (col, value)
-            best_sets = (set_1, set_2)
+            p = float(len(set_1)) / float(len(rows))
+            # This calculates the weighted average entropy of the
+            # current pair of sets. The lower the entropy, the higher
+            # the gain. The pair with the lowest entropy (gain > best)
+            # is saved.
+            # current_score is vanilla plain entropy of the raw data.
+            # p * score_f(set_1) is weighted average of the entropy
+            # of set_1
+            # (1 - p) * score_f(set_2) is the weighted average of the
+            # entropy of set_2.
+            # Notice that p is the size of set_1 relative to the whole
+            # set ie. 0.454 ~= 45% and that (1 - p) is the size of
+            # set_2 relative to the whole set.
+            gain = current_score - p * score_f(set_1) - (1 - p) * score_f(set_2)
+            if gain > best_gain and len(set_1) > 0 and len(set_2) > 0:
+                best_gain = gain
+                best_criteria = (col, value)
+                best_sets = (set_1, set_2)
 
+    # Having found the best branches (set_1, set_2 = 
+    # true_branch, false_branch):
+    # if their is any gain then return a DecisionNode with
+    # set_1 being the true branch and set_2 being the false branch.
+    # At the same time, recurisvely inspect these child nodes.
     if best_gain > 0:
         true_branch = build_tree(best_sets[0])
         false_branch = build_tree(best_sets[1])
         return DecisionNode(col=best_criteria[0], value=best_criteria[1],
                 tb=true_branch, fb=false_branch)
     else:
+        # If there was no gain, return a leaf node.
         return DecisionNode(results=unique_counts(rows))
 
 
 def print_tree(tree, indent=''):
+    '''
+    Uses recursing to print a decision tree from top to bottom.
+    '''
     if tree.results: 
         print str(tree.results)
     else:
@@ -134,19 +188,29 @@ def print_tree(tree, indent=''):
         print_tree(tree.fb, indent+'    ')
 
 
+# Two great examples of recursion.
 def get_width(tree):
+    '''
+    Get the width of the tree in nodes.
+    '''
     if not tree.tb and not tree.tb:
         return 1
     return get_width(tree.tb) + get_width(tree.fb)
 
 
 def get_depth(tree):
+    '''
+    Get the depth of the tree in nodes.
+    '''
     if not tree.tb and not tree.fb:
         return 0
     return max(get_depth(tree.tb), get_depth(tree.fb)) + 1
 
 
 def draw_node(draw, tree, x, y):
+    '''
+    Use PIL to create nodes and lines for a decision tree.
+    '''
     if not tree.results:
         w1 = get_width(tree.fb) * 100
         w2 = get_width(tree.tb) * 100
@@ -177,11 +241,17 @@ def draw_tree(tree, jpeg='tree.jpg'):
     
 
 def classify(observation, tree):
+    '''
+    Uses recursion to generate
+    a result based on the observation and a trained
+    decision tree.
+    '''
     if tree.results:
         return tree.results
     else:
         v = observation[tree.col]
         branch = None
+        # This is analogous to the unique_counts function
         if isinstance(v, int) or isinstance(v, float):
             if v >= tree.value:
                 branch = tree.tb
@@ -196,6 +266,14 @@ def classify(observation, tree):
 
 
 def prune(tree, min_gain):
+    '''
+    Remove nodes from a decision tree that don't matter
+    much in classifying new observations.
+    This prevents overfitting. According to The Book,
+    since the algorithm will split sets until there's
+    nothing to split, pruning will get rid of nodes
+    that shouldn't have been split.
+    '''
     if not tree.tb.results:
         prune(tree.tb, min_gain)
     if not tree.fb.results:
@@ -215,6 +293,12 @@ def prune(tree, min_gain):
 
 
 def md_classify(observation, tree):
+    '''
+    Used to classify observations with missing data.
+    According to The Book this classification function
+    follows multiple branches and weighs each branch
+    score to find out which is the best one.
+    '''
     if tree.results:
         return tree.results
     else:
