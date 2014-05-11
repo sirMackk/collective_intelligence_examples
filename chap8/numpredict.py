@@ -236,8 +236,8 @@ weight_domain = [(0, 20)] * 4
 
 def prob_guess(data, vec1, low, high, k=5, weight_f=gaussian):
     '''
-    Creates a probability curve for k nearest neighbors ie.
-    judges how probably vec1's neighbor is.
+    Uses a probability density curve to guess if a wine described by
+    vec1 is between low and high in terms of price.
     '''
     d_list = get_distances(data, vec1)
     n_weight = 0.0
@@ -260,6 +260,10 @@ def prob_guess(data, vec1, low, high, k=5, weight_f=gaussian):
 
 
 def cumulative_graph(data, vec1, high, k=5, weight_f=gaussian):
+    '''
+    Create a cumulative probability graph.
+    '''
+    # eg. usage:
     # numpredict.cumulative_graph(data, (99, 10), 120)
     t1 = np.arange(0.0, high, 0.1)
     cprob = np.array([prob_guess(data, vec1, 0, v, k, weight_f) for v in t1])
@@ -268,6 +272,10 @@ def cumulative_graph(data, vec1, high, k=5, weight_f=gaussian):
 
 
 def probability_graph(data, vec1, high, k=5, weight_f=gaussian, ss=5.0):
+    '''
+    Created a distributed probability graph.
+    '''
+    # Usage:
     # numpredict.probability_graph(data, (99, 10), 120)
     t1 = np.arange(0.0, high, 0.1)
     probs = [prob_guess(data, vec1, v, v+0.1, k, weight_f) for v in t1]
