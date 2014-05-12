@@ -1,4 +1,6 @@
 import gzip
+import random
+import math
 
 
 class MatchRow(object):
@@ -75,7 +77,7 @@ def match_count(interest1, interest2):
 
 
 def miles_distance(a1, a2):
-    return 0
+    return random.randint(0, 1)
 
 
 def load_numerical():
@@ -96,14 +98,11 @@ def scale_data(rows):
 
     for row in rows:
         d = row.data
-        print d
         for i in xrange(len(d)):
             if d[i] < low[i]:
                 low[i] = d[i]
             if d[i] > high[i]:
                 high[i] = d[i]
-        print high[i], low[i]
-        print high, low
 
     def scale_input(d):
         return [(d[i] - low[i]) / (high[i] - low[i])
@@ -113,3 +112,50 @@ def scale_data(rows):
                 for row in rows]
 
     return new_rows, scale_input
+
+
+def vec_length(v):
+    return sum([p**2 for p in v])
+
+
+def rbf(v1, v2, gamma=20):
+    dv = [v1[i] - v2[i] for i in xrange(len(v1))]
+    l = vec_length(dv)
+    return math.e ** (-gamma * l)
+
+
+def nl_classify(point, rows, offset, gamma=10):
+    sum0 = 0.0
+    sum1 = 0.0
+    count0 = 0
+    count1 = 0
+
+    for row in rows:
+        if row.match == 0:
+            sum0 += rbf(point, row.data, gamma)
+            count0 += 1
+        else:
+            sum1 += rbf(point, row.data, gamma)
+            count1 += 1
+
+    y = (1.0 / count0) * sum0 - (1.0 / count1) * sum1 + offset
+
+    if y < 0:
+        return 0
+    else:
+        return 1
+
+
+def get_offset(rows, gamma=10):
+    l0 = []
+    l1 = []
+    for row in rows:
+        if row.match == 0:
+            l0.append(row.data)
+        else:
+            l1.append(row.data)
+
+    sum0 = sum(sum([rbf(v1, v2, gamma) for v1 in l0]) for v2 in l0)
+    sum1 = sum(sum([rbf(v1, v2, gamma) for v1 in l1]) for v2 in l1)
+
+    return (1.0 / (len(l1) ** 2)) * sum1 - (1.0 / (len(l0) ** 2)) * sum0
