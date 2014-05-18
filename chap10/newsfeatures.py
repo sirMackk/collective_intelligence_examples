@@ -1,5 +1,6 @@
 import feedparser
 import re
+import numpy as np
 
 feed_list = ['http://today.reuters.com/rss/topNews',
             'http:/today.reuters.com/rss/domesticNews',
@@ -77,4 +78,52 @@ def make_matrix(all_w, article_w):
            for word in word_vec] for f in article_w]
 
     return l1, word_vec
-            
+
+
+def show_features(w, h, titles, word_vec, out='features.txt'):
+    with open(out, 'wb') as f:
+        pc, wc = np.shape(h)
+        top_patterns = [[] for i in xrange(len(titles))]
+        pattern_names = []
+
+        for i in xrange(pc):
+            s_list = []
+            for j in xrange(wc):
+                s_list.append((h[i, j], word_vec[j]))
+
+            s_list.sort()
+            s_list.reverse()
+
+            n = [s[1] for s in s_list[0:6]]
+            f.write(str(n) + '\n')
+            pattern_names.append(n)
+
+            f_list = []
+
+            for j in xrange(len(titles)):
+                f_list.append((w[j, i], titles[j]))
+                top_patterns[j].append((w[j, i], i, titles[j]))
+
+            f_list.sort()
+            f_list.reverse()
+
+            for feature in f_list[0:3]:
+                f.write(str(feature) + '\n')
+            f.write('\n')
+
+    return top_patterns, pattern_names
+
+
+def show_articles(titles, top_patterns, pattern_names, out='articles.txt'):
+    with open(out, 'wb') as f:
+        for j in xrange(len(titles)):
+            f.write(titles[j].encode('utf8') + '\n')
+
+            top_patterns[j].sort()
+            top_patterns[j].reverse()
+
+            for i in xrange(3):
+                f.write(str(top_patterns[j][i][0]) + ' ' +
+                        str(pattern_names[top_patterns[j][i][1]]) + '\n')
+
+            f.write('\n')
