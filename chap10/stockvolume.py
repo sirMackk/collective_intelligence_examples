@@ -10,9 +10,7 @@ prices = {}
 dates = None
 
 for t in tickers:
-    #rows = urllib2.urlopen('http://ichart.finance.yahoo.com/table.csv?' + \
-                           #'s=%s&d=11&e=26&f=2013&g=d&a=3&b=12&c=2003%t' + \
-                           #'&ignore=.csv').readlines()
+    # iterate over each ticker and download a csv file of it's score
     url = 'http://ichart.finance.yahoo.com/table.csv?s=%s&d=11&e=26&f=2006&' % t
     print url
     try:
@@ -20,6 +18,7 @@ for t in tickers:
     except urllib2.HTTPError, e:
         print e
 
+    # transform the stock prices into a an array
     prices[t] = [float(r.split(',')[5]) for r in rows[1:] if r.strip() != '']
     if len(prices[t]) < shortest:
         shortest = len(prices[t])
@@ -28,6 +27,7 @@ for t in tickers:
         dates = [r.split(',')[0] for r in rows[1:] if r.strip() != '']
 
 
+# create a matrix of tickers/prices
 l1 = [[prices[tickers[i]][j] for i in xrange(len(tickers))]
         for j in xrange(shortest)]
 
@@ -36,7 +36,7 @@ w, h, _ = nmf.factorize(np.matrix(l1), pc=5)
 print h
 print w
 
-
+# output the collected and calculated data into stdout
 for i in xrange(np.shape(h)[0]):
     print 'Feature %d: ' % i
 

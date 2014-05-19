@@ -2,6 +2,9 @@ import numpy as np
 
 
 def diff_cost(a, b):
+    '''
+    Calculates the difference of two arrays.
+    '''
     diff = 0
     for i in xrange(np.shape(a)[0]):
         for j in xrange(np.shape(a)[1]):
@@ -11,6 +14,9 @@ def diff_cost(a, b):
 
 
 def factorize(v, pc=10, iter=50):
+    '''
+    NMF algorithm magick.
+    '''
     # filter all 0 rows to avoid NaN errors
     idx_mask, _ = np.nonzero(v.sum(axis=1) > 0)
     v = v[idx_mask][0]
