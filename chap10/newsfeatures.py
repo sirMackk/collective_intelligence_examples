@@ -45,7 +45,7 @@ def separate_words(text):
     return [s.lower() for s in splitter.split(text) if len(s) > 3]
 
 
-def get_article_words():
+def get_article_words(get_text=False):
     '''
     Separates an article into a dict of all words, a list of dicts of 
     words for each article, and a list of titles.
@@ -54,6 +54,7 @@ def get_article_words():
     article_words = []
     article_titles = []
     ec = 0
+    texts = []
 
     for feed in feed_list:
         # iterate over each feed from the list
@@ -68,6 +69,8 @@ def get_article_words():
             # combine the entry title and contents, stripping it from html
             txt = e.title.encode('utf8') + strip_html(e.description.encode('utf8'))
             # divide the title + content into a list oflower cased words
+            if get_text:
+                texts.append(txt)
             words = separate_words(txt)
             article_words.append({})
             # add title to list of titles
@@ -84,7 +87,10 @@ def get_article_words():
                 article_words[ec][word] += 1
             ec += 1
 
-    return all_words, article_words, article_titles
+    if get_text:
+        return all_words, article_words, article_titles, texts
+    else:
+        return all_words, article_words, article_titles
 
 
 def make_matrix(all_w, article_w):
