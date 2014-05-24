@@ -172,3 +172,88 @@ def get_rank_function(dataset):
         return scores
 
     return rank_function
+
+
+def grid_game(p):
+    max = (3, 3)
+    last_move = [-1, -1]
+    location = [[randint(0, max[0]), randint(0, max[1])]]
+
+    location.append([(location[0][0] + 2) % 4, (location[0][1] + 2) % 4])
+
+    for o in xrange(50):
+        for i in xrange(2):
+            locs = location[i][:] + location[1-i][:]
+            locs.append(last_move[i])
+            move = p[i].evaluate(locs) % 4
+
+            if last_move[i] == move:
+                return 1 - i
+            last_move[i] = move
+            if move == 0:
+                location[i][0] -= 1
+                if location[i][0] < 0:
+                    location[i][0] = 0
+            if move == 1:
+                location[i][0] += 1
+                if location[i][0] > max[0]:
+                    location[i][0] = max[0]
+            if move == 2:
+                location[i][1] -= 1
+                if location[i][1] < 0:
+                    location[i][1] = 0
+            if move == 3:
+                location[i][1] += 1
+                if location[i][1] > max[1]:
+                    location[i][1] = max[1]
+            if location[i] == location[1-i]:
+                return i
+    return -1
+
+
+def tournament(pl):
+    losses = [0 for p in pl]
+
+    for i in xrange(len(pl)):
+        for j in xrange(len(pl)):
+            if i == j:
+                continue
+            winner = grid_game([pl[i], pl[j]])
+
+            if winner == 0:
+                losses[j] += 2
+            elif winner == 1:
+                losses[i] += 2
+            elif winner == -1:
+                losses[i] += 1
+                losses[j] += 1
+                pass
+    z = zip(losses, pl)
+    z.sort()
+    return z
+
+
+class HumanPlayer(object):
+    def evaluate(self, board):
+
+        me = tuple(board[0:2])
+        others = [tuple(board[x:x+2]) for x in xrange(2, len(board) - 1, 2)]
+
+        for i in xrange(4):
+            for j in xrange(4):
+                if (i, j) == me:
+                    print '0',
+                elif (i, j) in others:
+                    print 'X',
+                else:
+                    print '.',
+            print
+
+        print 'Your last move was %d' % board[len(board) - 1]
+        print ' 0'
+        print '2 3'
+        print ' 1'
+        print 'Enter move: ',
+
+        move = int(raw_input())
+        return move
