@@ -3,6 +3,9 @@ from copy import deepcopy
 from math import log
 
 class FWrapper(object):
+    '''
+    This is a wrapper object for a function.
+    '''
     def __init__(self, function, child_count, name):
         self.function = function
         self.child_count = child_count
@@ -10,6 +13,13 @@ class FWrapper(object):
 
 
 class Node(object):
+    '''
+    This is a generic Node object that's the basic building block
+    of a tree. It can hold references to all the other node types.
+    What's more, it can evaluate itself ie. iterate through
+    all of it's children, calling each childnode's evaluate
+    function and collecting the results.
+    '''
     def __init__(self, fw, children):
         self.function = fw.function
         self.name = fw.name
@@ -26,6 +36,9 @@ class Node(object):
 
 
 class ParamNode(object):
+    '''
+    This is a node that holds simple parameters.
+    '''
     def __init__(self, idx):
         self.idx = idx
 
@@ -37,6 +50,9 @@ class ParamNode(object):
 
 
 class ConstNode(object):
+    '''
+    This is a node that holds a parameter that cannot change.
+    '''
     def __init__(self, v):
         self.v = v
 
@@ -48,6 +64,9 @@ class ConstNode(object):
 
 
 def is_greater(l):
+    '''
+    Evaluates where l[0] is greater than l[1].
+    '''
     if l[0] > l[1]:
         return 1
     else:
@@ -55,12 +74,16 @@ def is_greater(l):
 
 
 def if_func(l):
+    '''
+    Evaluates a simple if statement, returning one of the arguments.
+    '''
     if l[0] > 0:
         return l[1]
     else:
         return l[2]
 
-
+# Wraps up some simple functions to use in the trees.
+# Great example to see how FWrapper actually works.
 addw = FWrapper(lambda l: l[0] + l[1], 2, 'add')
 subw = FWrapper(lambda l: l[0] - l[1], 2, 'subtract')
 mulw = FWrapper(lambda l: l[0] * l[1], 2, 'multiply')
@@ -71,12 +94,19 @@ f_list = [addw, mulw, ifw, gtw, subw]
 
 
 def example_tree():
+    '''
+    Generates an example tree of nodes, using all the basic functions except mulw.
+    '''
     return Node(ifw, [Node(gtw, [ParamNode(0), ConstNode(3)]),
                       Node(addw, [ParamNode(1), ConstNode(5)]),
                       Node(subw, [ParamNode(1), ConstNode(2)])])
 
 
 def make_random_tree(pc, max_depth=4, fpr=0.5, ppr=0.6):
+    '''
+    Creates a random tree by calling itself recursively. The nodes are created
+    totally randomly.
+    '''
     if random() < fpr and max_depth > 0:
         f = choice(f_list)
         children = [make_random_tree(pc, max_depth - 1, fpr, ppr)
@@ -89,10 +119,17 @@ def make_random_tree(pc, max_depth=4, fpr=0.5, ppr=0.6):
 
 
 def hidden_function(x, y):
+    '''
+    The hidden function that's used to generate an example set of data.
+    '''
     return x ** 2 + 2 * y + 3 * x + 5
 
 
 def build_hidden_set():
+    '''
+    Builds a hidden set of data in order to try out a genetic algorithm
+    approach.
+    '''
     rows = []
     for i in xrange(200):
         x = randint(0, 40)
@@ -103,6 +140,12 @@ def build_hidden_set():
 
 
 def score_function(tree, s):
+    '''
+    A simple scoring function that compares features with results and
+    calculates the difference. The higher the difference, the higher/worse
+    the score. The closer a tree to the correct function, the lower
+    the difference.
+    '''
     diff = 0
     for data in s:
         v = tree.evaluate([data[0], data[1]])
@@ -112,6 +155,10 @@ def score_function(tree, s):
 
 
 def mutate(t, pc, prob_change=0.1):
+    '''
+    Mutates a node by substituting it with a random tree OR
+    recursively tries to mutate each child of the node t.
+    '''
     if random() < prob_change:
         return make_random_tree(pc)
     else:
@@ -123,6 +170,11 @@ def mutate(t, pc, prob_change=0.1):
 
 
 def crossover(t1, t2, prob_swap=0.7, top=1):
+    '''
+    Combines two nodes, t1 and t2, by traversing down each tree and randomly
+    stopping at a node in each one. Then it swaps these nodes along with
+    their children.
+    '''
     if random() < prob_swap and not top:
         return deepcopy(t2)
     else:
@@ -136,6 +188,11 @@ def crossover(t1, t2, prob_swap=0.7, top=1):
 
 def evolve(pc, pop_size, rank_function, max_gen=500, mutation_rate=0.1,
         breeding_rate=0.4, pexp=0.7, pnew=0.05):
+    '''
+    Creates a population of random trees, scores them against each other,
+    then mutates and crossovers the top trees until the lowest score
+    is reached.
+    '''
     def select_index():
         return int(log(random()) / log(pexp))
 
@@ -148,8 +205,10 @@ def evolve(pc, pop_size, rank_function, max_gen=500, mutation_rate=0.1,
             print 'score!'
             break
 
+        # picks out two of the best trees and discards the rest
         new_pop = [scores[0][1], scores[1][1]]
 
+        # rebuilds the population
         while len(new_pop) < pop_size:
             if random() > pnew:
                 new_pop.append(mutate(
@@ -166,6 +225,9 @@ def evolve(pc, pop_size, rank_function, max_gen=500, mutation_rate=0.1,
 
 
 def get_rank_function(dataset):
+    '''
+    Returns a ranking function as an object.
+    '''
     def rank_function(population):
         scores = [(score_function(t, dataset), t) for t in population]
         scores.sort()
